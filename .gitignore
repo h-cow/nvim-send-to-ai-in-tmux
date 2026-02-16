@@ -1,0 +1,14 @@
+# Neovim plugin patterns
+.DS_Store
+*.swp
+*.swo
+*~
+.test/
+lua_modules/
+
+# Editor files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
