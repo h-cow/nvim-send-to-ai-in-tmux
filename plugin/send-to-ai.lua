@@ -14,8 +14,14 @@ vim.api.nvim_create_user_command('SendToAI', function(opts)
     return
   end
 
-  -- Determine mode: if called with range in visual mode, use visual; otherwise normal
+  -- Determine mode: check if called from visual mode
+  -- vim.fn.mode() returns 'v', 'V', or '\22' (ctrl-v) in visual mode,
+  -- and 'n' in normal mode. With <cmd> mappings, visual mode is preserved.
+  -- Also check opts.range as fallback for : command-line invocation.
   local mode = vim.fn.mode()
+  if mode == 'n' and opts.range > 0 then
+    mode = 'v'
+  end
 
   -- Call main function
   send_to_ai.send_to_ai(mode)

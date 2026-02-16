@@ -94,7 +94,7 @@ end
 --- @return string Formatted message
 function M.format_location_message(filepath, line_number, config)
   local path = M.resolve_path(filepath, config)
-  return string.format('%s:%d', path, line_number)
+  return string.format('File: %s:%d', path, line_number)
 end
 
 --- Format code message (visual mode: file:start-end\ncode)
@@ -105,7 +105,7 @@ end
 --- @return string Formatted message
 function M.format_code_message(filepath, line_range, lines, config)
   local path = M.resolve_path(filepath, config)
-  local header = string.format('%s:%d-%d', path, line_range.start, line_range['end'])
+  local header = string.format('File: %s:%d-%d', path, line_range.start, line_range['end'])
 
   -- Join lines preserving all whitespace
   local code = table.concat(lines, '\n')

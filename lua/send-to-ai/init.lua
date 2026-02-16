@@ -53,10 +53,16 @@ end
 --- @return table|nil range {start, end} line numbers
 --- @return string|nil error Error message if failed
 local function get_visual_selection()
-  local start_pos = vim.fn.getpos("'<")
-  local end_pos = vim.fn.getpos("'>")
-  local start_line = start_pos[2]
-  local end_line = end_pos[2]
+  -- Use current visual selection (v and .) for <cmd> mappings where marks aren't set yet,
+  -- then fall back to '< and '> marks for : command-line invocation
+  local start_line = vim.fn.line('v')
+  local end_line = vim.fn.line('.')
+
+  -- If not in active visual mode, fall back to visual marks
+  if start_line == 0 or end_line == 0 then
+    start_line = vim.fn.line("'<")
+    end_line = vim.fn.line("'>")
+  end
 
   -- Validate selection
   if start_line == 0 or end_line == 0 then

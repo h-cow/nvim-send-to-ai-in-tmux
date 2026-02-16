@@ -23,7 +23,7 @@ local function get_current_session()
 end
 
 --- List all tmux panes with their process information
---- @return table|nil Array of pane info {session, pane_id, command}
+--- @return table|nil Array of pane info {session, pane_id, command, title}
 --- @return string|nil Error message
 local function list_all_panes()
   if not M.is_in_tmux() then
@@ -31,7 +31,7 @@ local function list_all_panes()
   end
 
   local ok, panes = pcall(vim.fn.systemlist,
-    'tmux list-panes -a -F "#{session_name}:#{pane_id}:#{pane_current_command}"')
+    'tmux list-panes -a -F "#{session_name}:#{pane_id}:#{pane_current_command}:#{pane_title}"')
 
   if not ok or not panes or #panes == 0 then
     return nil, "Failed to query tmux panes"
@@ -40,18 +40,77 @@ local function list_all_panes()
   -- Parse pane information
   local pane_list = {}
   for _, pane_info in ipairs(panes) do
-    -- Format: session_name:pane_id:command
-    local session, pane_id, command = pane_info:match("^([^:]+):([^:]+):(.+)$")
+    -- Format: session_name:pane_id:command:title
+    local session, pane_id, command, title = pane_info:match("^([^:]+):([^:]+):([^:]*):(.*)$")
     if session and pane_id and command then
       table.insert(pane_list, {
         session = session,
         pane_id = pane_id,
         command = command,
+        title = title or '',
       })
     end
   end
 
   return pane_list, nil
+end
+
+--- Resolve the actual binary names that tmux might report for AI processes.
+--- Claude Code installs as a symlink (e.g., claude -> versions/2.1.42),
+--- so tmux reports the version number as pane_current_command instead of "claude".
+--- @param ai_processes string[] Configured AI process names
+--- @return string[] Extended list including resolved binary names
+local function resolve_ai_binary_names(ai_processes)
+  local names = {}
+  local seen = {}
+
+  for _, name in ipairs(ai_processes) do
+    local lower = name:lower()
+    if not seen[lower] then
+      seen[lower] = true
+      table.insert(names, name)
+    end
+
+    -- Try to resolve the actual binary name via which + readlink
+    local which_result = vim.fn.system('which ' .. vim.fn.shellescape(name) .. ' 2>/dev/null')
+    local bin_path = vim.trim(which_result)
+    if vim.v.shell_error == 0 and bin_path ~= '' then
+      -- Follow symlinks to find the real binary
+      local readlink_result = vim.fn.system('readlink ' .. vim.fn.shellescape(bin_path) .. ' 2>/dev/null')
+      local real_path = vim.trim(readlink_result)
+      if vim.v.shell_error == 0 and real_path ~= '' then
+        -- Extract the basename of the resolved path (e.g., "2.1.42" from ".../versions/2.1.42")
+        local resolved_name = real_path:match("([^/]+)$")
+        if resolved_name then
+          local resolved_lower = resolved_name:lower()
+          if not seen[resolved_lower] then
+            seen[resolved_lower] = true
+            table.insert(names, resolved_name)
+          end
+        end
+      end
+    end
+  end
+
+  return names
+end
+
+--- Check if a pane matches any AI process name
+--- @param pane table Pane info with command and title fields
+--- @param ai_names string[] AI process names to match against
+--- @return boolean
+local function pane_matches_ai(pane, ai_names)
+  local cmd_lower = pane.command:lower()
+  local title_lower = pane.title:lower()
+
+  for _, ai_name in ipairs(ai_names) do
+    local pattern = ai_name:lower()
+    if cmd_lower:find(pattern, 1, true) or title_lower:find(pattern, 1, true) then
+      return true
+    end
+  end
+
+  return false
 end
 
 --- Find AI pane based on process names in config
@@ -75,15 +134,14 @@ function M.find_ai_pane(config)
     return nil, err or "Failed to list tmux panes"
   end
 
-  -- Find AI panes (substring match, case-insensitive)
+  -- Resolve AI binary names (handles symlinked binaries like claude -> 2.1.42)
+  local ai_names = resolve_ai_binary_names(config.ai_processes)
+
+  -- Find AI panes (substring match on command and title, case-insensitive)
   local ai_panes = {}
   for _, pane in ipairs(panes) do
-    local cmd_lower = pane.command:lower()
-    for _, ai_process in ipairs(config.ai_processes) do
-      if cmd_lower:find(ai_process:lower(), 1, true) then
-        table.insert(ai_panes, pane)
-        break
-      end
+    if pane_matches_ai(pane, ai_names) then
+      table.insert(ai_panes, pane)
     end
   end
 
@@ -135,6 +193,9 @@ function M.send_to_pane(pane_id, text)
   -- Escape text for tmux literal mode
   local escaped = escape_for_tmux(text)
 
+  -- Append a trailing newline so the cursor lands on a fresh line for the user to type
+  escaped = escaped .. '\n'
+
   -- Send text with -l flag (literal mode - prevents shell interpretation)
   local send_cmd = string.format('tmux send-keys -t "%s" -l %s', pane_id, vim.fn.shellescape(escaped))
   local ok, result = pcall(vim.fn.system, send_cmd)
@@ -143,13 +204,9 @@ function M.send_to_pane(pane_id, text)
     return false, string.format("Tmux send-keys failed: %s", result or "unknown error")
   end
 
-  -- Send Enter separately (cannot use -l with Enter key)
-  local enter_cmd = string.format('tmux send-keys -t "%s" Enter', pane_id)
-  ok, result = pcall(vim.fn.system, enter_cmd)
-
-  if not ok or vim.v.shell_error ~= 0 then
-    return false, string.format("Failed to send Enter: %s", result or "unknown error")
-  end
+  -- Switch focus to the AI pane
+  local focus_cmd = string.format('tmux select-pane -t "%s"', pane_id)
+  pcall(vim.fn.system, focus_cmd)
 
   return true, nil
 end
