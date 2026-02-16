@@ -22,7 +22,7 @@
 
 ```lua
 {
-  'openclaw/nvim-send-to-ai-in-tmux',
+  'h-cow/nvim-send-to-ai-in-tmux',
   cmd = 'SendToAI',
   keys = {
     { '<leader>ai', '<cmd>SendToAI<cr>', mode = { 'n', 'v' }, desc = 'Send to AI' }
@@ -34,7 +34,7 @@
 ### packer.nvim
 
 ```lua
-use 'openclaw/nvim-send-to-ai-in-tmux'
+use 'h-cow/nvim-send-to-ai-in-tmux'
 
 -- Optional keybinding
 vim.keymap.set({ 'n', 'v' }, '<leader>ai', '<cmd>SendToAI<cr>', { desc = 'Send to AI' })
@@ -43,7 +43,7 @@ vim.keymap.set({ 'n', 'v' }, '<leader>ai', '<cmd>SendToAI<cr>', { desc = 'Send t
 ### Manual
 
 ```bash
-git clone https://github.com/openclaw/nvim-send-to-ai-in-tmux ~/.local/share/nvim/site/pack/plugins/start/nvim-send-to-ai-in-tmux
+git clone https://github.com/h-cow/nvim-send-to-ai-in-tmux ~/.local/share/nvim/site/pack/plugins/start/nvim-send-to-ai-in-tmux
 ```
 
 ## Usage
@@ -294,7 +294,7 @@ require('send-to-ai').setup({
 
 Contributions are welcome! Please:
 
-- Open [issues](https://github.com/openclaw/nvim-send-to-ai-in-tmux/issues) for bugs or feature requests
+- Open [issues](https://github.com/h-cow/nvim-send-to-ai-in-tmux/issues) for bugs or feature requests
 - Submit pull requests with clear descriptions
 - Follow existing code style and patterns
 - Add tests when applicable
