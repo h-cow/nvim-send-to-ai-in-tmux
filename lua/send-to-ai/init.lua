@@ -107,6 +107,44 @@ local function validate_selection_size(line_count, cfg)
   return true, nil
 end
 
+--- Build the payload that would be sent for the current buffer/mode.
+--- @param mode string|nil Vim mode ('n' for normal, 'v'/'V' for visual), defaults to current mode
+--- @return string|nil content
+--- @return string|nil error
+local function build_content(mode)
+  mode = mode or vim.fn.mode()
+  local cfg = config.get()
+  local bufnr = vim.api.nvim_get_current_buf()
+
+  -- Validate buffer
+  local valid, err = validate_buffer(bufnr)
+  if not valid then
+    return nil, err
+  end
+
+  local filepath = vim.api.nvim_buf_get_name(bufnr)
+
+  if mode == 'n' then
+    local line_number = vim.fn.line('.')
+    return format.format_location_message(filepath, line_number, cfg), nil
+  end
+
+  local lines, range, selection_err = get_visual_selection()
+
+  if not lines then
+    return nil, selection_err or "Failed to get selection"
+  end
+
+  local line_count = range['end'] - range.start + 1
+  local size_valid, size_err = validate_selection_size(line_count, cfg)
+
+  if not size_valid then
+    return nil, size_err
+  end
+
+  return format.format_code_message(filepath, range, lines, cfg), nil
+end
+
 --- Send content to AI pane or clipboard
 --- @param content string Content to send
 --- @return boolean success
@@ -167,50 +205,31 @@ end
 --- Main entry point: Send code or location to AI
 --- @param mode string|nil Vim mode ('n' for normal, 'v'/'V' for visual), defaults to current mode
 function M.send_to_ai(mode)
-  mode = mode or vim.fn.mode()
-  local cfg = config.get()
-  local bufnr = vim.api.nvim_get_current_buf()
-
-  -- Validate buffer
-  local valid, err = validate_buffer(bufnr)
-  if not valid then
+  local content, err = build_content(mode)
+  if not content then
     vim.notify(string.format("[send-to-ai] %s", err), vim.log.levels.ERROR)
     return
   end
 
-  local filepath = vim.api.nvim_buf_get_name(bufnr)
+  send(content)
+end
 
-  -- Handle based on mode
-  if mode == 'n' then
-    -- Normal mode: send location (file:line)
-    local line_number = vim.fn.line('.')
-    local message = format.format_location_message(filepath, line_number, cfg)
-    send(message)
-  else
-    -- Visual mode: send code with context
-    local lines, range, selection_err = get_visual_selection()
-
-    if not lines then
-      vim.notify(
-        string.format("[send-to-ai] %s", selection_err or "Failed to get selection"),
-        vim.log.levels.ERROR
-      )
-      return
-    end
-
-    -- Validate selection size
-    local line_count = range['end'] - range.start + 1
-    local size_valid, size_err = validate_selection_size(line_count, cfg)
-
-    if not size_valid then
-      vim.notify(string.format("[send-to-ai] %s", size_err), vim.log.levels.ERROR)
-      return
-    end
-
-    -- Format and send code message
-    local message = format.format_code_message(filepath, range, lines, cfg)
-    send(message)
+--- Copy the payload that would be sent to the system clipboard.
+--- @param mode string|nil Vim mode ('n' for normal, 'v'/'V' for visual), defaults to current mode
+function M.copy_to_clipboard(mode)
+  local content, err = build_content(mode)
+  if not content then
+    vim.notify(string.format("[send-to-ai] %s", err), vim.log.levels.ERROR)
+    return
   end
+
+  local ok, clip_err = clipboard.copy_to_clipboard(content)
+  if not ok then
+    vim.notify(string.format("[send-to-ai] %s", clip_err), vim.log.levels.ERROR)
+    return
+  end
+
+  vim.notify("Copied AI payload to clipboard", vim.log.levels.INFO)
 end
 
 return M

@@ -23,9 +23,10 @@
 ```lua
 {
   'openclaw/nvim-send-to-ai-in-tmux',
-  cmd = 'SendToAI',
+  cmd = { 'SendToAI', 'CopyToAIClipboard' },
   keys = {
-    { '<leader>ai', '<cmd>SendToAI<cr>', mode = { 'n', 'v' }, desc = 'Send to AI' }
+    { '<leader>ai', '<cmd>SendToAI<cr>', mode = { 'n', 'v' }, desc = 'Send to AI' },
+    { '<leader>ac', '<cmd>CopyToAIClipboard<cr>', mode = { 'n', 'v' }, desc = 'Copy AI payload' },
   },
   opts = {}  -- Optional: customize configuration here
 }
@@ -38,6 +39,7 @@ use 'openclaw/nvim-send-to-ai-in-tmux'
 
 -- Optional keybinding
 vim.keymap.set({ 'n', 'v' }, '<leader>ai', '<cmd>SendToAI<cr>', { desc = 'Send to AI' })
+vim.keymap.set({ 'n', 'v' }, '<leader>ac', '<cmd>CopyToAIClipboard<cr>', { desc = 'Copy AI payload' })
 ```
 
 ### Manual
@@ -70,6 +72,11 @@ fn parse_expression(&self) -> Result<Expr> {
 ```
 src/parser.rs:142
 ```
+
+**Clipboard-only payload copy**:
+1. Select code or place the cursor on a line
+2. Press `<leader>ac` (or run `:CopyToAIClipboard`)
+3. The exact payload that `:SendToAI` would send is copied to your system clipboard
 
 ### Workflow Example
 

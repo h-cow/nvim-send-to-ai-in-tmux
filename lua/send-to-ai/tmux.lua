@@ -190,6 +190,10 @@ function M.send_to_pane(pane_id, text)
     return false, "Not in tmux session"
   end
 
+  -- Switch focus to the AI pane first, so cursor is at the visible prompt
+  local focus_cmd = string.format('tmux select-pane -t "%s"', pane_id)
+  pcall(vim.fn.system, focus_cmd)
+
   -- Escape text for tmux literal mode
   local escaped = escape_for_tmux(text)
 
@@ -203,10 +207,6 @@ function M.send_to_pane(pane_id, text)
   if not ok or vim.v.shell_error ~= 0 then
     return false, string.format("Tmux send-keys failed: %s", result or "unknown error")
   end
-
-  -- Switch focus to the AI pane
-  local focus_cmd = string.format('tmux select-pane -t "%s"', pane_id)
-  pcall(vim.fn.system, focus_cmd)
 
   return true, nil
 end

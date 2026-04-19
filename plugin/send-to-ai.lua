@@ -5,15 +5,7 @@ end
 vim.g.loaded_send_to_ai = 1
 
 -- Create :SendToAI command
-vim.api.nvim_create_user_command('SendToAI', function(opts)
-  -- Lazy-load the main module
-  local ok, send_to_ai = pcall(require, 'send-to-ai')
-
-  if not ok then
-    vim.notify('[send-to-ai] Failed to load plugin: ' .. send_to_ai, vim.log.levels.ERROR)
-    return
-  end
-
+local function resolve_mode(opts)
   -- Determine mode: check if called from visual mode
   -- vim.fn.mode() returns 'v', 'V', or '\22' (ctrl-v) in visual mode,
   -- and 'n' in normal mode. With <cmd> mappings, visual mode is preserved.
@@ -23,9 +15,35 @@ vim.api.nvim_create_user_command('SendToAI', function(opts)
     mode = 'v'
   end
 
+  return mode
+end
+
+vim.api.nvim_create_user_command('SendToAI', function(opts)
+  -- Lazy-load the main module
+  local ok, send_to_ai = pcall(require, 'send-to-ai')
+
+  if not ok then
+    vim.notify('[send-to-ai] Failed to load plugin: ' .. send_to_ai, vim.log.levels.ERROR)
+    return
+  end
+
   -- Call main function
-  send_to_ai.send_to_ai(mode)
+  send_to_ai.send_to_ai(resolve_mode(opts))
 end, {
   desc = 'Send code or location to AI in tmux pane',
   range = true,  -- Allow visual mode usage
+})
+
+vim.api.nvim_create_user_command('CopyToAIClipboard', function(opts)
+  local ok, send_to_ai = pcall(require, 'send-to-ai')
+
+  if not ok then
+    vim.notify('[send-to-ai] Failed to load plugin: ' .. send_to_ai, vim.log.levels.ERROR)
+    return
+  end
+
+  send_to_ai.copy_to_clipboard(resolve_mode(opts))
+end, {
+  desc = 'Copy the AI payload to the clipboard',
+  range = true,
 })
